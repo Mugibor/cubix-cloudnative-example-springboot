@@ -9,7 +9,7 @@ on:
     - main
 
 jobs:
-  build:
+  maven:
 
     runs-on: ubuntu-latest
     permissions:
@@ -35,3 +35,29 @@ jobs:
       run: mvn deploy
       env:
         GITHUB_TOKEN: ${{ github.token }}
+        
+    - name: Upload artifact for Docker job
+      uses: actions/upload-artifact@v4
+      with:
+        name: java-app
+        path: '${{github.workspace}}/target/*.jar
+
+   docker:
+    needs: maven # docker job megvárja, amíg a maven job befejezi a futását és nem engedi őket párhuzamosan futni.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Download artifcate from Maven job
+      uses: actions/download-artifact@v4
+      with:
+        name: java-app
+    - name: Logging in to Docker
+      run: docker login ghcr.io -u mugibor -p ${{ github.token }}
+    - name: Build docker image
+      run: docker build . --file Dockerfile --tag ghcr.io/mugibor/cubix/cloudnative/demo:actions
+    - name: Publish docker image
+      run: docker push ghcr.io/mugibor/cubix/cloudnative/demo:actions
